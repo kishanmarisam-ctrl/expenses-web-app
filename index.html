@@ -15,43 +15,36 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Prop Types (Required for Recharts UMD) -->
-    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+    <!-- Chart.js (More stable than Recharts for CDN usage) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- Recharts -->
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
-    
-    <!-- Babel for JSX compilation in browser -->
+    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.min.js"></script>
 
     <style>
-      body {
-        font-family: 'Inter', sans-serif;
-      }
+      body { font-family: 'Inter', sans-serif; }
+      /* Hide scrollbar for clean UI */
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #f1f5f9; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
   </head>
   <body class="bg-slate-50 text-slate-800">
     <div id="root"></div>
 
-    <script type="text/babel" data-presets="env,react,typescript">
-      const { useState, useEffect, useMemo } = React;
+    <script type="text/babel" data-presets="env,react">
+      const { useState, useEffect, useMemo, useRef } = React;
       const { createRoot } = ReactDOM;
-      
-      // Safe access to globals
-      const RechartsObj = window.Recharts || { PieChart: () => null, Pie: () => null, Cell: () => null, ResponsiveContainer: () => null, Tooltip: () => null, Legend: () => null };
-      const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = RechartsObj;
-      
-      const LucideObj = window.lucideReact || { Wallet: () => null, Globe: () => null, PlusCircle: () => null, AlertCircle: () => null, Trash2: () => null, ShoppingBag: () => null, Coffee: () => null, Plane: () => null, Receipt: () => null, Clapperboard: () => null, HelpCircle: () => null, Filter: () => null, Search: () => null, DollarSign: () => null, Calendar: () => null, CreditCard: () => null, Coins: () => null };
-      const { 
-        Wallet, Globe, PlusCircle, AlertCircle, Trash2, ShoppingBag, 
-        Coffee, Plane, Receipt, Clapperboard, HelpCircle, Filter, 
-        Search, DollarSign, Calendar, CreditCard, Coins 
-      } = LucideObj;
 
-      // --- TYPES ---
+      // --- UTILS & CONSTANTS ---
+      const uuidv4 = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+
       const CATEGORIES = ['Food', 'Travel', 'Shopping', 'Bills', 'Entertainment', 'Other'];
       
       const CURRENCIES = [
@@ -84,6 +77,35 @@
         { code: 'VND', symbol: '₫', name: 'Vietnamese Dong' },
         { code: 'PLN', symbol: 'zł', name: 'Polish Zloty' },
       ];
+
+      // --- ICON COMPONENT (Inline SVG to avoid library crashes) ---
+      const Icons = {
+        Wallet: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>,
+        Globe: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>,
+        Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+        Coins: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>,
+        CreditCard: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>,
+        PlusCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>,
+        AlertCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>,
+        Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
+        Filter: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
+        Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
+        Receipt: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6"/><path d="M16 12h-6"/><path d="M16 16h-6"/></svg>,
+        Coffee: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>,
+        ShoppingBag: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
+        Plane: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12h5"/><path d="M13 12h3"/><path d="M4 17h22a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M8 12a4 4 0 1 1-4-4"/></svg>, // Simple placeholder
+        Clapperboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.2 6 3 11l-.9-2.4c-.5-1.1.2-2.4 1.3-2.9l13.2-4.8c1.1-.5 2.4.2 2.9 1.3l.7 1.8Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>,
+        HelpCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      };
+      
+      const IconWrapper = ({ name, size = 20, className = "" }) => {
+        const Icon = Icons[name] || Icons.HelpCircle;
+        return (
+          <span className={`inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+            {React.cloneElement(Icon(), { width: size, height: size })}
+          </span>
+        );
+      };
 
       // --- STORAGE SERVICE ---
       const STORAGE_KEY = 'buckwheat_expenses';
@@ -123,19 +145,15 @@
         }
       };
 
-      const uuidv4 = () => {
-        return crypto.randomUUID();
-      };
-
       // --- COMPONENTS ---
 
-      // SummaryCards.tsx
+      // SummaryCards
       const SummaryCards = ({ totalOverall, totalMonth, count, currencySymbol }) => {
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:-translate-y-1 duration-300">
               <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full">
-                <Calendar size={24} />
+                <IconWrapper name="Calendar" size={24} />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">This Month</p>
@@ -145,7 +163,7 @@
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:-translate-y-1 duration-300">
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-full">
-                <Coins size={24} />
+                <IconWrapper name="Coins" size={24} />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Total Spent</p>
@@ -155,7 +173,7 @@
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:-translate-y-1 duration-300">
               <div className="p-3 bg-amber-50 text-amber-600 rounded-full">
-                <CreditCard size={24} />
+                <IconWrapper name="CreditCard" size={24} />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Total Transactions</p>
@@ -166,7 +184,7 @@
         );
       };
 
-      // ExpenseForm.tsx
+      // ExpenseForm
       const ExpenseForm = ({ onAddExpense, currencySymbol }) => {
         const [amount, setAmount] = useState('');
         const [category, setCategory] = useState('Food');
@@ -197,7 +215,6 @@
           };
 
           onAddExpense(newExpense);
-          
           setAmount('');
           setNote('');
         };
@@ -205,7 +222,7 @@
         return (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <PlusCircle size={20} className="text-indigo-600" />
+              <IconWrapper name="PlusCircle" size={20} className="text-indigo-600" />
               Add New Expense
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -259,7 +276,7 @@
 
               {error && (
                 <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 p-2 rounded-lg">
-                  <AlertCircle size={16} />
+                  <IconWrapper name="AlertCircle" size={16} />
                   {error}
                 </div>
               )}
@@ -275,15 +292,15 @@
         );
       };
 
-      // ExpenseList.tsx
-      const getCategoryIcon = (category) => {
+      // ExpenseList
+      const getCategoryIconName = (category) => {
         switch (category) {
-          case 'Food': return <Coffee size={18} />;
-          case 'Shopping': return <ShoppingBag size={18} />;
-          case 'Travel': return <Plane size={18} />;
-          case 'Bills': return <Receipt size={18} />;
-          case 'Entertainment': return <Clapperboard size={18} />;
-          default: return <HelpCircle size={18} />;
+          case 'Food': return 'Coffee';
+          case 'Shopping': return 'ShoppingBag';
+          case 'Travel': return 'Plane';
+          case 'Bills': return 'Receipt';
+          case 'Entertainment': return 'Clapperboard';
+          default: return 'HelpCircle';
         }
       };
 
@@ -303,7 +320,7 @@
           return (
             <div className="bg-white p-12 rounded-xl shadow-sm border border-slate-100 text-center flex flex-col items-center justify-center h-full">
               <div className="bg-slate-50 p-4 rounded-full mb-4">
-                <Receipt className="text-slate-300" size={48} />
+                <IconWrapper name="Receipt" size={48} className="text-slate-300" />
               </div>
               <h3 className="text-lg font-semibold text-slate-700">No expenses found</h3>
               <p className="text-slate-500 mt-1">Adjust your filters or add a new expense to get started.</p>
@@ -332,7 +349,7 @@
                       </td>
                       <td className="py-4 px-6 text-sm">
                         <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
-                          {getCategoryIcon(expense.category)}
+                          <IconWrapper name={getCategoryIconName(expense.category)} size={18} />
                           {expense.category}
                         </span>
                       </td>
@@ -348,7 +365,7 @@
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
                           title="Delete Expense"
                         >
-                          <Trash2 size={16} />
+                          <IconWrapper name="Trash2" size={16} />
                         </button>
                       </td>
                     </tr>
@@ -360,17 +377,11 @@
         );
       };
 
-      // ExpenseChart.tsx
-      const CHART_COLORS = {
-        Food: '#f97316',
-        Travel: '#0ea5e9',
-        Shopping: '#2563eb',
-        Bills: '#dc2626',
-        Entertainment: '#9333ea',
-        Other: '#64748b',
-      };
-
+      // ExpenseChart (Using Chart.js)
       const ExpenseChart = ({ expenses, currencySymbol }) => {
+        const canvasRef = useRef(null);
+        const chartInstanceRef = useRef(null);
+
         const data = useMemo(() => {
           const map = new Map();
           expenses.forEach((e) => {
@@ -378,13 +389,95 @@
             map.set(e.category, current + e.amount);
           });
 
-          const result = Array.from(map.entries()).map(([name, value]) => ({
-            name,
-            value,
-          })).filter(item => item.value > 0);
-          
-          return result.sort((a, b) => b.value - a.value);
+          // Sort by value desc
+          return Array.from(map.entries())
+            .map(([name, value]) => ({ name, value }))
+            .filter(item => item.value > 0)
+            .sort((a, b) => b.value - a.value);
         }, [expenses]);
+
+        useEffect(() => {
+          if (!canvasRef.current) return;
+
+          // Destroy previous chart
+          if (chartInstanceRef.current) {
+            chartInstanceRef.current.destroy();
+          }
+
+          if (data.length === 0) return;
+
+          const ctx = canvasRef.current.getContext('2d');
+          
+          const CHART_COLORS = {
+            Food: '#f97316', // Orange 500
+            Travel: '#0ea5e9', // Sky 500
+            Shopping: '#2563eb', // Blue 600
+            Bills: '#dc2626', // Red 600
+            Entertainment: '#9333ea', // Purple 600
+            Other: '#64748b', // Slate 500
+          };
+
+          const labels = data.map(d => d.name);
+          const values = data.map(d => d.value);
+          const backgroundColors = labels.map(label => CHART_COLORS[label] || '#cbd5e1');
+
+          chartInstanceRef.current = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: labels,
+              datasets: [{
+                data: values,
+                backgroundColor: backgroundColors,
+                borderWidth: 0,
+                hoverOffset: 4
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    usePointStyle: true,
+                    boxWidth: 10,
+                    padding: 20,
+                    font: { family: "'Inter', sans-serif", size: 12 }
+                  }
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      let label = context.label || '';
+                      if (label) {
+                        label += ': ';
+                      }
+                      if (context.parsed !== null) {
+                        label += currencySymbol + context.parsed.toFixed(2);
+                      }
+                      return label;
+                    }
+                  },
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  titleColor: '#1e293b',
+                  bodyColor: '#475569',
+                  borderColor: '#e2e8f0',
+                  borderWidth: 1,
+                  padding: 10,
+                  displayColors: true,
+                  boxPadding: 4
+                }
+              },
+              cutout: '65%',
+            }
+          });
+
+          return () => {
+            if (chartInstanceRef.current) {
+              chartInstanceRef.current.destroy();
+            }
+          };
+        }, [data, currencySymbol]);
 
         if (data.length === 0) {
           return (
@@ -397,35 +490,14 @@
         return (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96 flex flex-col">
             <h3 className="text-lg font-bold text-slate-800 mb-4">Expenses by Category</h3>
-            <div className="flex-1 w-full min-h-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[entry.name] || '#cbd5e1'} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value) => [`${currencySymbol}${value.toFixed(2)}`, 'Amount']}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="flex-1 w-full min-h-0 relative">
+              <canvas ref={canvasRef}></canvas>
             </div>
           </div>
         );
       };
 
-      // FilterBar.tsx
+      // FilterBar
       const FilterBar = ({ filters, onFilterChange }) => {
         const handleMonthChange = (e) => {
           onFilterChange({ ...filters, month: e.target.value });
@@ -442,7 +514,7 @@
         return (
           <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="flex items-center gap-2 text-slate-500 font-medium">
-              <Filter size={18} />
+              <IconWrapper name="Filter" size={18} />
               <span>Filters</span>
             </div>
 
@@ -473,14 +545,16 @@
                   onChange={handleSearchChange}
                   className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 w-full md:w-48"
                 />
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <IconWrapper name="Search" size={16} />
+                </div>
               </div>
             </div>
           </div>
         );
       };
 
-      // App.tsx
+      // App
       const App = () => {
         const [expenses, setExpenses] = useState([]);
         const [currencyCode, setCurrencyCode] = useState(getCurrencyCode());
@@ -549,7 +623,7 @@
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="bg-indigo-600 p-2 rounded-lg text-white">
-                    <Wallet size={24} />
+                    <IconWrapper name="Wallet" size={24} />
                   </div>
                   <div>
                     <h1 className="text-xl font-bold text-slate-800 leading-tight">Check Your Wallet</h1>
@@ -559,7 +633,7 @@
                 
                 <div className="flex items-center gap-2">
                   <div className="hidden sm:flex items-center gap-1 text-slate-400 text-sm mr-2">
-                    <Globe size={14} />
+                    <IconWrapper name="Globe" size={14} />
                     <span>Currency</span>
                   </div>
                   <select 
