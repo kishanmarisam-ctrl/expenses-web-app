@@ -95,7 +95,7 @@ const App: React.FC = () => {
               <Wallet size={24} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-800 leading-tight">Buckwheat</h1>
+              <h1 className="text-xl font-bold text-slate-800 leading-tight">Check Your Wallet</h1>
               <p className="text-xs text-slate-500 font-medium">Track your spending, simply.</p>
             </div>
           </div>
@@ -169,7 +169,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-slate-400 text-sm border-t border-slate-200 mt-8">
-        Buckwheat – Expense Tracker | Mini Project
+        Check Your Wallet – Expense Tracker | Mini Project
       </footer>
     </div>
   );
