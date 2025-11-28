@@ -15,11 +15,14 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Babel for JSX compilation in browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Prop Types (Required for Recharts UMD) -->
+    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
     
     <!-- Recharts -->
     <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    
+    <!-- Babel for JSX compilation in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.min.js"></script>
@@ -36,12 +39,17 @@
     <script type="text/babel" data-presets="env,react,typescript">
       const { useState, useEffect, useMemo } = React;
       const { createRoot } = ReactDOM;
-      const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
+      
+      // Safe access to globals
+      const RechartsObj = window.Recharts || { PieChart: () => null, Pie: () => null, Cell: () => null, ResponsiveContainer: () => null, Tooltip: () => null, Legend: () => null };
+      const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = RechartsObj;
+      
+      const LucideObj = window.lucideReact || { Wallet: () => null, Globe: () => null, PlusCircle: () => null, AlertCircle: () => null, Trash2: () => null, ShoppingBag: () => null, Coffee: () => null, Plane: () => null, Receipt: () => null, Clapperboard: () => null, HelpCircle: () => null, Filter: () => null, Search: () => null, DollarSign: () => null, Calendar: () => null, CreditCard: () => null, Coins: () => null };
       const { 
         Wallet, Globe, PlusCircle, AlertCircle, Trash2, ShoppingBag, 
         Coffee, Plane, Receipt, Clapperboard, HelpCircle, Filter, 
         Search, DollarSign, Calendar, CreditCard, Coins 
-      } = lucideReact;
+      } = LucideObj;
 
       // --- TYPES ---
       const CATEGORIES = ['Food', 'Travel', 'Shopping', 'Bills', 'Entertainment', 'Other'];
