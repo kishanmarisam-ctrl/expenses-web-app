@@ -1,0 +1,5 @@
+{
+  "name": "Buckwheat – Expense Tracker",
+  "description": "A modern, responsive expense tracker to track your spending simply. Features local storage persistence, categorization, filtering, and analytics.",
+  "requestFramePermissions": []
+}
