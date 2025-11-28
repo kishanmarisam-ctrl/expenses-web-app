@@ -4,27 +4,618 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Check Your Wallet – Expense Tracker</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX compilation in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Recharts -->
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.min.js"></script>
+
     <style>
       body {
         font-family: 'Inter', sans-serif;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "uuid": "https://aistudiocdn.com/uuid@^13.0.0"
-  }
-}
-</script>
-</head>
+  </head>
   <body class="bg-slate-50 text-slate-800">
     <div id="root"></div>
+
+    <script type="text/babel" data-presets="env,react,typescript">
+      const { useState, useEffect, useMemo } = React;
+      const { createRoot } = ReactDOM;
+      const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
+      const { 
+        Wallet, Globe, PlusCircle, AlertCircle, Trash2, ShoppingBag, 
+        Coffee, Plane, Receipt, Clapperboard, HelpCircle, Filter, 
+        Search, DollarSign, Calendar, CreditCard, Coins 
+      } = lucideReact;
+
+      // --- TYPES ---
+      const CATEGORIES = ['Food', 'Travel', 'Shopping', 'Bills', 'Entertainment', 'Other'];
+      
+      const CURRENCIES = [
+        { code: 'USD', symbol: '$', name: 'US Dollar' },
+        { code: 'EUR', symbol: '€', name: 'Euro' },
+        { code: 'GBP', symbol: '£', name: 'British Pound' },
+        { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+        { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+        { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+        { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+        { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+        { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
+        { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
+        { code: 'RUB', symbol: '₽', name: 'Russian Ruble' },
+        { code: 'KRW', symbol: '₩', name: 'South Korean Won' },
+        { code: 'MXN', symbol: 'Mx$', name: 'Mexican Peso' },
+        { code: 'SAR', symbol: '﷼', name: 'Saudi Riyal' },
+        { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+        { code: 'TRY', symbol: '₺', name: 'Turkish Lira' },
+        { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
+        { code: 'NOK', symbol: 'kr', name: 'Norwegian Krone' },
+        { code: 'DKK', symbol: 'kr', name: 'Danish Krone' },
+        { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+        { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar' },
+        { code: 'NZD', symbol: 'NZ$', name: 'New Zealand Dollar' },
+        { code: 'IDR', symbol: 'Rp', name: 'Indonesian Rupiah' },
+        { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
+        { code: 'PHP', symbol: '₱', name: 'Philippine Peso' },
+        { code: 'THB', symbol: '฿', name: 'Thai Baht' },
+        { code: 'VND', symbol: '₫', name: 'Vietnamese Dong' },
+        { code: 'PLN', symbol: 'zł', name: 'Polish Zloty' },
+      ];
+
+      // --- STORAGE SERVICE ---
+      const STORAGE_KEY = 'buckwheat_expenses';
+      const CURRENCY_KEY = 'buckwheat_currency';
+
+      const getExpenses = () => {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          return stored ? JSON.parse(stored) : [];
+        } catch (e) {
+          console.error("Failed to load expenses", e);
+          return [];
+        }
+      };
+
+      const saveExpenses = (expenses) => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+        } catch (e) {
+          console.error("Failed to save expenses", e);
+        }
+      };
+
+      const getCurrencyCode = () => {
+        try {
+          return localStorage.getItem(CURRENCY_KEY) || 'USD';
+        } catch (e) {
+          return 'USD';
+        }
+      };
+
+      const saveCurrencyCode = (code) => {
+        try {
+          localStorage.setItem(CURRENCY_KEY, code);
+        } catch (e) {
+          console.error("Failed to save currency", e);
+        }
+      };
+
+      const uuidv4 = () => {
+        return crypto.randomUUID();
+      };
+
+      // --- COMPONENTS ---
+
+      // SummaryCards.tsx
+      const SummaryCards = ({ totalOverall, totalMonth, count, currencySymbol }) => {
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:-translate-y-1 duration-300">
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full">
+                <Calendar size={24} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500">This Month</p>
+                <h3 className="text-2xl font-bold text-slate-800">{currencySymbol}{totalMonth.toFixed(2)}</h3>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:-translate-y-1 duration-300">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-full">
+                <Coins size={24} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500">Total Spent</p>
+                <h3 className="text-2xl font-bold text-slate-800">{currencySymbol}{totalOverall.toFixed(2)}</h3>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:-translate-y-1 duration-300">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-full">
+                <CreditCard size={24} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500">Total Transactions</p>
+                <h3 className="text-2xl font-bold text-slate-800">{count}</h3>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // ExpenseForm.tsx
+      const ExpenseForm = ({ onAddExpense, currencySymbol }) => {
+        const [amount, setAmount] = useState('');
+        const [category, setCategory] = useState('Food');
+        const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+        const [note, setNote] = useState('');
+        const [error, setError] = useState(null);
+
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          setError(null);
+
+          const numAmount = parseFloat(amount);
+          if (isNaN(numAmount) || numAmount <= 0) {
+            setError('Please enter a valid positive amount.');
+            return;
+          }
+          if (!date) {
+            setError('Please select a date.');
+            return;
+          }
+
+          const newExpense = {
+            id: uuidv4(),
+            amount: numAmount,
+            category,
+            date,
+            note: note.trim(),
+          };
+
+          onAddExpense(newExpense);
+          
+          setAmount('');
+          setNote('');
+        };
+
+        return (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <PlusCircle size={20} className="text-indigo-600" />
+              Add New Expense
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Amount ({currencySymbol})</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Category</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white transition-all"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Note (Optional)</label>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    placeholder="Lunch, taxi, etc."
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 p-2 rounded-lg">
+                  <AlertCircle size={16} />
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 active:scale-[0.99] transition-all shadow-md shadow-indigo-200"
+              >
+                Add Expense
+              </button>
+            </form>
+          </div>
+        );
+      };
+
+      // ExpenseList.tsx
+      const getCategoryIcon = (category) => {
+        switch (category) {
+          case 'Food': return <Coffee size={18} />;
+          case 'Shopping': return <ShoppingBag size={18} />;
+          case 'Travel': return <Plane size={18} />;
+          case 'Bills': return <Receipt size={18} />;
+          case 'Entertainment': return <Clapperboard size={18} />;
+          default: return <HelpCircle size={18} />;
+        }
+      };
+
+      const getCategoryColor = (category) => {
+         switch (category) {
+          case 'Food': return 'text-orange-600 bg-orange-50';
+          case 'Shopping': return 'text-blue-600 bg-blue-50';
+          case 'Travel': return 'text-sky-600 bg-sky-50';
+          case 'Bills': return 'text-red-600 bg-red-50';
+          case 'Entertainment': return 'text-purple-600 bg-purple-50';
+          default: return 'text-slate-600 bg-slate-100';
+        }
+      }
+
+      const ExpenseList = ({ expenses, onDeleteExpense, currencySymbol }) => {
+        if (expenses.length === 0) {
+          return (
+            <div className="bg-white p-12 rounded-xl shadow-sm border border-slate-100 text-center flex flex-col items-center justify-center h-full">
+              <div className="bg-slate-50 p-4 rounded-full mb-4">
+                <Receipt className="text-slate-300" size={48} />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-700">No expenses found</h3>
+              <p className="text-slate-500 mt-1">Adjust your filters or add a new expense to get started.</p>
+            </div>
+          );
+        }
+
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+                    <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
+                    <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Note</th>
+                    <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+                    <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {expenses.map((expense) => (
+                    <tr key={expense.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="py-4 px-6 text-sm text-slate-600 whitespace-nowrap">
+                        {new Date(expense.date).toLocaleDateString()}
+                      </td>
+                      <td className="py-4 px-6 text-sm">
+                        <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
+                          {getCategoryIcon(expense.category)}
+                          {expense.category}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-slate-600 max-w-xs truncate">
+                        {expense.note || <span className="text-slate-300 italic">No notes</span>}
+                      </td>
+                      <td className="py-4 px-6 text-sm font-semibold text-slate-800 text-right">
+                        {currencySymbol}{expense.amount.toFixed(2)}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <button
+                          onClick={() => onDeleteExpense(expense.id)}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title="Delete Expense"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      };
+
+      // ExpenseChart.tsx
+      const CHART_COLORS = {
+        Food: '#f97316',
+        Travel: '#0ea5e9',
+        Shopping: '#2563eb',
+        Bills: '#dc2626',
+        Entertainment: '#9333ea',
+        Other: '#64748b',
+      };
+
+      const ExpenseChart = ({ expenses, currencySymbol }) => {
+        const data = useMemo(() => {
+          const map = new Map();
+          expenses.forEach((e) => {
+            const current = map.get(e.category) || 0;
+            map.set(e.category, current + e.amount);
+          });
+
+          const result = Array.from(map.entries()).map(([name, value]) => ({
+            name,
+            value,
+          })).filter(item => item.value > 0);
+          
+          return result.sort((a, b) => b.value - a.value);
+        }, [expenses]);
+
+        if (data.length === 0) {
+          return (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-80 flex items-center justify-center text-slate-400 text-sm">
+              Not enough data to display chart.
+            </div>
+          );
+        }
+
+        return (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96 flex flex-col">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Expenses by Category</h3>
+            <div className="flex-1 w-full min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[entry.name] || '#cbd5e1'} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value) => [`${currencySymbol}${value.toFixed(2)}`, 'Amount']}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
+      };
+
+      // FilterBar.tsx
+      const FilterBar = ({ filters, onFilterChange }) => {
+        const handleMonthChange = (e) => {
+          onFilterChange({ ...filters, month: e.target.value });
+        };
+
+        const handleCategoryChange = (e) => {
+          onFilterChange({ ...filters, category: e.target.value });
+        };
+
+        const handleSearchChange = (e) => {
+          onFilterChange({ ...filters, search: e.target.value });
+        };
+
+        return (
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-500 font-medium">
+              <Filter size={18} />
+              <span>Filters</span>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+              <input
+                type="month"
+                value={filters.month}
+                onChange={handleMonthChange}
+                className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+              />
+
+              <select
+                value={filters.category}
+                onChange={handleCategoryChange}
+                className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+              >
+                <option value="All">All Categories</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search notes..."
+                  value={filters.search}
+                  onChange={handleSearchChange}
+                  className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 w-full md:w-48"
+                />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // App.tsx
+      const App = () => {
+        const [expenses, setExpenses] = useState([]);
+        const [currencyCode, setCurrencyCode] = useState(getCurrencyCode());
+        const [filters, setFilters] = useState(() => {
+          const now = new Date();
+          const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          return {
+            month: monthStr,
+            category: 'All',
+            search: '',
+          };
+        });
+
+        const currency = useMemo(() => {
+          return CURRENCIES.find(c => c.code === currencyCode) || CURRENCIES[0];
+        }, [currencyCode]);
+
+        useEffect(() => {
+          const loaded = getExpenses();
+          setExpenses(loaded);
+        }, []);
+
+        const handleCurrencyChange = (e) => {
+          const newCode = e.target.value;
+          setCurrencyCode(newCode);
+          saveCurrencyCode(newCode);
+        };
+
+        const handleAddExpense = (newExpense) => {
+          const updated = [newExpense, ...expenses];
+          setExpenses(updated);
+          saveExpenses(updated);
+        };
+
+        const handleDeleteExpense = (id) => {
+          const updated = expenses.filter((e) => e.id !== id);
+          setExpenses(updated);
+          saveExpenses(updated);
+        };
+
+        const filteredExpenses = useMemo(() => {
+          return expenses.filter((expense) => {
+            if (!expense.date.startsWith(filters.month)) return false;
+            if (filters.category !== 'All' && expense.category !== filters.category) return false;
+            if (filters.search) {
+              const searchLower = filters.search.toLowerCase();
+              const noteMatch = expense.note.toLowerCase().includes(searchLower);
+              if (!noteMatch) return false;
+            }
+            return true;
+          }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        }, [expenses, filters]);
+
+        const summary = useMemo(() => {
+          const totalOverall = expenses.reduce((sum, e) => sum + e.amount, 0);
+          const currentMonthTotal = expenses
+            .filter(e => e.date.startsWith(filters.month))
+            .reduce((sum, e) => sum + e.amount, 0);
+
+          return { totalOverall, currentMonthTotal };
+        }, [expenses, filters.month]);
+
+        return (
+          <div className="min-h-screen pb-12">
+            <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-indigo-600 p-2 rounded-lg text-white">
+                    <Wallet size={24} />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold text-slate-800 leading-tight">Check Your Wallet</h1>
+                    <p className="text-xs text-slate-500 font-medium">Track your spending, simply.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1 text-slate-400 text-sm mr-2">
+                    <Globe size={14} />
+                    <span>Currency</span>
+                  </div>
+                  <select 
+                    value={currencyCode} 
+                    onChange={handleCurrencyChange}
+                    className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                  >
+                    {CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} ({c.symbol})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </header>
+
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <SummaryCards 
+                totalOverall={summary.totalOverall} 
+                totalMonth={summary.currentMonthTotal}
+                count={filteredExpenses.length}
+                currencySymbol={currency.symbol}
+              />
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1 space-y-6">
+                   <ExpenseForm onAddExpense={handleAddExpense} currencySymbol={currency.symbol} />
+                   <FilterBar filters={filters} onFilterChange={setFilters} />
+                   <div className="hidden lg:block">
+                     <ExpenseChart expenses={filteredExpenses} currencySymbol={currency.symbol} />
+                   </div>
+                </div>
+
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="lg:hidden">
+                     <ExpenseChart expenses={filteredExpenses} currencySymbol={currency.symbol} />
+                  </div>
+                  
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-xl font-bold text-slate-800">Transactions</h2>
+                    <span className="text-sm text-slate-500">
+                      {new Date(filters.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' })}
+                    </span>
+                  </div>
+
+                  <ExpenseList 
+                    expenses={filteredExpenses} 
+                    onDeleteExpense={handleDeleteExpense} 
+                    currencySymbol={currency.symbol}
+                  />
+                </div>
+              </div>
+            </main>
+
+            <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-slate-400 text-sm border-t border-slate-200 mt-8">
+              Check Your Wallet – Expense Tracker | Mini Project
+            </footer>
+          </div>
+        );
+      };
+
+      const root = createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
   </body>
 </html>
